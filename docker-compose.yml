@@ -1,0 +1,41 @@
+
+networks:
+  edge:            # public-facing network (BFF publishes port here)
+  private:
+    internal: true # not reachable from host or outside
+
+services:
+  grpc-service:
+    build:
+      context: ./grpc
+    image: yourorg/grpc-service:local
+    container_name: grpc-service
+    environment:
+      - NODE_ENV=production
+      - GRPC_PORT=50051
+    networks:
+      - private
+      - edge
+    # If your grpc server needs shared proto at runtime, mount/copy them:
+    volumes:
+      - ./proto:/app/proto:ro
+
+  bff:
+    build:
+      context: ./bff
+    image: yourorg/bff:local
+    container_name: bff
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - GRPC_HOST=grpc-service     # service name on the "private" network
+      - GRPC_PORT=50051
+    networks:
+      - edge
+      - private
+    ports:
+      - "4000:4000"   # only BFF is published (public)
+    depends_on:
+      - grpc-service
+    volumes:
+      - ./proto:/app/proto:ro
