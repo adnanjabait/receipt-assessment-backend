@@ -16,7 +16,6 @@ message PrescriptionResponse {
   string contact = 5;
   string doctor_name = 6;
   string medicine_name = 7;
-  string description = 8;
 }
 
 // Service

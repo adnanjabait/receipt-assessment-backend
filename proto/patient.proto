@@ -27,7 +27,6 @@ message PatientWithDetails {
   string contact = 5;
   string doctor_name = 6;
   string medicine_name = 7;
-  string description = 8;
   int32 totalCount = 9;
   int32 totalPages = 10;
 }
@@ -52,7 +51,6 @@ message UpdatePatientRequest {
   string contact = 5;
   string doctor_name = 6;
   string medicine_name = 7;
-  string description = 8;
 }
 
 message UpdateResponse {

@@ -76,7 +76,6 @@ const typeDefs = gql`
     contact: String
     doctor_name: String
     medicine_name: String
-    description: String
     totalCount: Int
     totalPages: Int
   }
@@ -90,7 +89,6 @@ const typeDefs = gql`
     contact: String
     doctor_name: String
     medicine_name: String
-    description: String
   }
 
   # Search reference
@@ -116,7 +114,6 @@ const typeDefs = gql`
       contact: String
       doctor_name: String
       medicine_name: String
-      description: String
     ): Boolean
   }
 `;

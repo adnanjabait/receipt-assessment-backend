@@ -1,31 +1,19 @@
 // ==========================
-// Import required packages
+// Import Required Packages
 // ==========================
-const grpc = require("@grpc/grpc-js");             // gRPC library for Node.js
-const protoLoader = require("@grpc/proto-loader"); // Load proto files dynamically
-const sql = require("mssql");                      // SQL Server client
-const path = require('path');                      // Path handling
-require('dotenv').config();                        // Load environment variables from .env
+const grpc = require("@grpc/grpc-js");          // gRPC library for Node.js
+const protoLoader = require("@grpc/proto-loader"); // Load .proto files dynamically
+const sql = require("mssql");                  // SQL Server client
 
 // ==========================
 // Load gRPC Proto Definitions
 // ==========================
-const prescriptionPackageDefinition = protoLoader.loadSync(
-  path.join(__dirname, 'proto', 'prescription.proto'),
-  { keepCase: true } // Preserve original proto field names like 'ref_no'
-);
+// Keep case ensures the field names in proto files are preserved (e.g., ref_no)
+const prescriptionPackageDefinition = protoLoader.loadSync("./prescription.proto", { keepCase: true });
+const patientPackageDefinition = protoLoader.loadSync("./patient.proto", { keepCase: true });
+const searchPackageDefinition = protoLoader.loadSync("./search.proto", { keepCase: true });
 
-const patientPackageDefinition = protoLoader.loadSync(
-  path.join(__dirname, 'proto', 'patient.proto'),
-  { keepCase: true }
-);
-
-const searchPackageDefinition = protoLoader.loadSync(
-  path.join(__dirname, 'proto', 'search.proto'),
-  { keepCase: true }
-);
-
-// Load proto definitions into gRPC objects
+// Load package definitions into gRPC objects
 const prescriptionProto = grpc.loadPackageDefinition(prescriptionPackageDefinition).prescription;
 const patientProto = grpc.loadPackageDefinition(patientPackageDefinition).patient;
 const searchProto = grpc.loadPackageDefinition(searchPackageDefinition).search;
@@ -55,13 +43,14 @@ const sqlConfig = {
 // ==========================
 
 // --------------------------
-// GetPrescription: Returns prescription details by reference number
+// GetPrescription
+// Returns prescription details by reference number
 // --------------------------
 async function GetPrescription(call, callback) {
   const ref_no = call.request.ref_no;
 
   try {
-    let pool = await sql.connect(sqlConfig);
+    let pool = await sql.connect(sqlConfig); // Connect to DB
 
     const query = `
       SELECT 
@@ -71,8 +60,7 @@ async function GetPrescription(call, callback) {
         p.gender,
         p.contact,
         d.name AS doctor_name,
-        m.name AS medicine_name,
-        m.description
+        m.name AS medicine_name
       FROM prescription_reference pr
       JOIN patient p ON pr.patient_id = p.id
       JOIN doctor d ON pr.doctor_id = d.id
@@ -84,6 +72,7 @@ async function GetPrescription(call, callback) {
       .input("ref_no", sql.VarChar, ref_no)
       .query(query);
 
+    // Check if prescription exists
     if (result.recordset.length === 0) {
       console.warn("⚠️ No prescription found for ref_no:", ref_no);
       return callback({
@@ -93,6 +82,8 @@ async function GetPrescription(call, callback) {
     }
 
     const row = result.recordset[0];
+
+    // Return prescription data
     callback(null, {
       reference_number: row.reference_number,
       patient_name: row.patient_name,
@@ -100,12 +91,11 @@ async function GetPrescription(call, callback) {
       gender: row.gender,
       contact: row.contact,
       doctor_name: row.doctor_name,
-      medicine_name: row.medicine_name,
-      description: row.description
+      medicine_name: row.medicine_name      
     });
 
   } catch (err) {
-    console.error("DB Error:", err);
+    console.error("🔴 DB Error:", err);
     callback({
       code: grpc.status.INTERNAL,
       message: "Database error"
@@ -114,11 +104,11 @@ async function GetPrescription(call, callback) {
 }
 
 // --------------------------
-// GetPatient: Returns patient details by name
+// GetPatient
+// Returns patient details by name
 // --------------------------
 async function GetPatient(call, callback) {
   const patientName = call.request.name;
-  console.log("Patient Name:", patientName);
 
   try {
     let pool = await sql.connect(sqlConfig);
@@ -135,6 +125,7 @@ async function GetPatient(call, callback) {
     }
 
     const row = result.recordset[0];
+
     callback(null, {
       name: row.name,
       age: row.age,
@@ -152,44 +143,26 @@ async function GetPatient(call, callback) {
 }
 
 // --------------------------
-// GetAllPatients: Returns all patients with pagination
+// GetAllPatients
+// Returns paginated list of patients using stored procedure
 // --------------------------
 async function GetAllPatients(call, callback) {
   const page = call.request.page || 1;
   const pageSize = call.request.pageSize || 10;
-  const offset = (page - 1) * pageSize;
+
+  console.log("📌 [DEBUG] Incoming request:", { page, pageSize });
 
   try {
     let pool = await sql.connect(sqlConfig);
+    console.log("✅ [DEBUG] Database connection established");
 
-    // Get total count of patients for pagination
-    let countResult = await pool.request()
-      .query(`SELECT COUNT(*) AS totalCount FROM prescription_reference`);
-    const totalCount = countResult.recordset[0].totalCount;
-    const totalPages = Math.ceil(totalCount / pageSize);
-
-    // Fetch paginated patient data
+    // Execute stored procedure for pagination
     let result = await pool.request()
-      .input("offset", sql.Int, offset)
-      .input("pageSize", sql.Int, pageSize)
-      .query(`
-        SELECT 
-          pr.reference_number,
-          p.name,
-          p.age,
-          p.gender,
-          p.contact,
-          d.name AS doctor_name,
-          m.name AS medicine_name,
-          m.description
-        FROM prescription_reference pr
-        JOIN patient p ON pr.patient_id = p.id
-        JOIN doctor d ON pr.doctor_id = d.id
-        JOIN medicine m ON pr.medicine_id = m.id
-        ORDER BY pr.reference_number
-        OFFSET @offset ROWS
-        FETCH NEXT @pageSize ROWS ONLY
-      `);
+      .input("Page", sql.Int, page)
+      .input("PageSize", sql.Int, pageSize)
+      .execute("GetPatientsPaged");
+
+    console.log("✅ [DEBUG] Stored procedure executed");
 
     const patients = result.recordset.map(row => ({
       reference_number: row.reference_number,
@@ -199,44 +172,41 @@ async function GetAllPatients(call, callback) {
       contact: row.contact,
       doctor_name: row.doctor_name,
       medicine_name: row.medicine_name,
-      description: row.description,
-      totalCount,
-      totalPages
+      totalCount: row.totalCount,
+      totalPages: row.totalPages
     }));
 
-    callback(null, { patients, totalPages });
+    console.log("✅ [DEBUG] Patients fetched:", patients.length);
+
+    callback(null, { patients });
 
   } catch (err) {
-    console.error("DB Error:", err);
+    console.error("❌ [DEBUG] DB Error:", err);
     callback({
       code: grpc.status.INTERNAL,
-      message: "Database error"
+      message: "Database error: " + err.message
     });
   }
 }
 
 // --------------------------
-// UpdatePatientDetails: Updates patient, doctor, and medicine details in a transaction
+// UpdatePatientDetails
+// Updates patient, doctor, and medicine tables using transaction
 // --------------------------
 async function UpdatePatientDetails(call, callback) {
-  const {
-    reference_number,
-    name,
-    age,
-    gender,
-    contact,
-    doctor_name,
-    medicine_name,
-    description
-  } = call.request;
+  const { reference_number, name, age, gender, contact, doctor_name, medicine_name } = call.request;
 
   try {
+    console.log("🔌 Connecting to database...");
     let pool = await sql.connect(sqlConfig);
+    console.log("✅ Database connected successfully");
+    
     const transaction = new sql.Transaction(pool);
     await transaction.begin();
+    console.log("🟢 Transaction started");
 
     try {
-      // Get IDs from prescription_reference
+      // Get patient, doctor, and medicine IDs
       const patientResult = await transaction.request()
         .input("reference_number", sql.VarChar, reference_number)
         .query(`
@@ -246,7 +216,9 @@ async function UpdatePatientDetails(call, callback) {
         `);
 
       if (patientResult.recordset.length === 0) {
+        console.log("❌ No patient found with reference_number:", reference_number);
         await transaction.rollback();
+        console.log("🔴 Transaction rolled back");
         return callback({
           code: grpc.status.NOT_FOUND,
           message: "Patient not found"
@@ -271,8 +243,6 @@ async function UpdatePatientDetails(call, callback) {
                 contact = COALESCE(@contact, contact)
             WHERE id = @patient_id
           `);
-      } else {
-        console.log("⏭️ No patient data to update");
       }
 
       // Update doctor table
@@ -281,32 +251,24 @@ async function UpdatePatientDetails(call, callback) {
           .input("doctor_id", sql.Int, doctor_id)
           .input("doctor_name", sql.VarChar, doctor_name)
           .query(`UPDATE doctor SET name = @doctor_name WHERE id = @doctor_id`);
-      } else {
-        console.log("⏭️ No doctor data to update");
       }
 
       // Update medicine table
-      if (medicine_name || description) {
+      if (medicine_name) {
         await transaction.request()
           .input("medicine_id", sql.Int, medicine_id)
           .input("medicine_name", sql.VarChar, medicine_name || null)
-          .input("description", sql.VarChar, description || null)
-          .query(`
-            UPDATE medicine 
-            SET name = COALESCE(@medicine_name, name),
-                description = COALESCE(@description, description)
-            WHERE id = @medicine_id
-          `);
-      } else {
-        console.log("⏭️ No medicine data to update");
+          .query(`UPDATE medicine SET name = COALESCE(@medicine_name, name) WHERE id = @medicine_id`);
       }
 
       await transaction.commit();
+      console.log("🟢 Transaction committed successfully");
       callback(null, { success: true });
 
     } catch (err) {
       console.error("❌ Error during transaction:", err);
       await transaction.rollback();
+      console.log("🔴 Transaction rolled back due to error");
       throw err;
     }
 
@@ -320,22 +282,17 @@ async function UpdatePatientDetails(call, callback) {
 }
 
 // --------------------------
-// GetReference: Returns all references matching a pattern
+// GetReference
+// Returns all prescription references matching a pattern
 // --------------------------
 async function GetReference(call, callback) {
   const ref_no = call.request.ref_no;
-  console.log("DB Config:", dbName, dbServer, dbPort, dbUser);
-  console.log("Reference:", ref_no);
 
   try {
     let pool = await sql.connect(sqlConfig);
     let result = await pool.request()
       .input("ref_no", sql.VarChar, `%${ref_no}%`)
-      .query(`
-        SELECT reference_number
-        FROM prescription_reference
-        WHERE reference_number LIKE @ref_no
-      `);
+      .query(`SELECT reference_number FROM prescription_reference WHERE reference_number LIKE @ref_no`);
 
     if (result.recordset.length === 0) {
       return callback({
@@ -362,14 +319,14 @@ async function GetReference(call, callback) {
 function main() {
   const server = new grpc.Server();
 
-  // Add gRPC services
+  // Add services to server
   server.addService(prescriptionProto.PrescriptionService.service, { GetPrescription });
   server.addService(patientProto.PatientService.service, { GetPatient, GetAllPatients, UpdatePatientDetails });
   server.addService(searchProto.SearchService.service, { GetReference });
 
-  // Bind server to port
-  server.bindAsync("grpc-service:50051", grpc.ServerCredentials.createInsecure(), () => {
-    console.log("🚀 gRPC Server running at http://grpc-service:50051");
+  // Bind and start server
+  server.bindAsync("localhost:50051", grpc.ServerCredentials.createInsecure(), () => {
+    console.log("🚀 gRPC Server running at http://localhost:50051");
   });
 }
 
