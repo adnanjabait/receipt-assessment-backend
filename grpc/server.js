@@ -4,14 +4,15 @@
 const grpc = require("@grpc/grpc-js");          // gRPC library for Node.js
 const protoLoader = require("@grpc/proto-loader"); // Load .proto files dynamically
 const sql = require("mssql");                  // SQL Server client
+const path = require('path');
 
 // ==========================
 // Load gRPC Proto Definitions
 // ==========================
 // Keep case ensures the field names in proto files are preserved (e.g., ref_no)
-const prescriptionPackageDefinition = protoLoader.loadSync("./prescription.proto", { keepCase: true });
-const patientPackageDefinition = protoLoader.loadSync("./patient.proto", { keepCase: true });
-const searchPackageDefinition = protoLoader.loadSync("./search.proto", { keepCase: true });
+const prescriptionPackageDefinition = protoLoader.loadSync(path.join(__dirname, 'proto', 'prescription.proto'), { keepCase: true });
+const patientPackageDefinition = protoLoader.loadSync(path.join(__dirname, 'proto', 'patient.proto'), { keepCase: true });
+const searchPackageDefinition = protoLoader.loadSync(path.join(__dirname, 'proto', 'search.proto'), { keepCase: true });
 
 // Load package definitions into gRPC objects
 const prescriptionProto = grpc.loadPackageDefinition(prescriptionPackageDefinition).prescription;
@@ -325,8 +326,8 @@ function main() {
   server.addService(searchProto.SearchService.service, { GetReference });
 
   // Bind and start server
-  server.bindAsync("localhost:50051", grpc.ServerCredentials.createInsecure(), () => {
-    console.log("🚀 gRPC Server running at http://localhost:50051");
+  server.bindAsync("grpc-service:50051", grpc.ServerCredentials.createInsecure(), () => {
+    console.log("🚀 gRPC Server running at http://grpc-service:50051");
   });
 }
 
