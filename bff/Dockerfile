@@ -17,7 +17,6 @@ ENV GRPC_PORT=50051
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-COPY proto ./proto
 # If BFF also needs the proto files, copy at compose/ECS build-time
 EXPOSE 4000
 

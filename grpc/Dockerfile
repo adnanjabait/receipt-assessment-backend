@@ -14,7 +14,6 @@ ENV GRPC_PORT=50051
 # If you dynamically load .proto at runtime, copy them:
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-COPY proto ./proto
 # Also copy shared proto files from the repo root at compose build-time (see docker-compose)
 # EXPOSE is just documentation; ECS/compose uses containerPort
 EXPOSE 50051

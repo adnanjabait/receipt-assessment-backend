@@ -2,6 +2,7 @@ const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
 const sql = require("mssql");
 const path = require('path');
+require('dotenv').config(); 
 
 // Load proto
 const prescriptionPackageDefinition = protoLoader.loadSync(path.join(__dirname, 'proto', 'prescription.proto'), {
@@ -19,9 +20,10 @@ const searchProto = grpc.loadPackageDefinition(searchPackageDefinition).search;
 
 const dbName = process.env.DB_NAME || "Receipt";
 const dbServer = process.env.DB_SERVER || "receiptdb.cj4wwmucwyxc.eu-north-1.rds.amazonaws.com";
-const dbPort = process.env.DB_PORT || 1433;
+const dbPort = Number(process.env.DB_PORT) || 1433;
 const dbUser = process.env.DB_USER || "receiptadmin";
 const dbPassword = process.env.DB_PASSWORD || "receipt$$##221";
+
 
 // SQL Server config
 const sqlConfig = {
@@ -302,6 +304,7 @@ async function UpdatePatientDetails(call, callback) {
 
 async function GetReference(call, callback) {
   const ref_no = call.request.ref_no;
+  console.log("DB Config:", dbName, dbServer, dbPort, dbUser);
   console.log("Reference:", ref_no);
 
   try {

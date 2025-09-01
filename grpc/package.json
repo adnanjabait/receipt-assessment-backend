@@ -4,6 +4,7 @@
     "@grpc/proto-loader": "^0.8.0",
     "@grpc/reflection": "^1.0.4",
     "apollo-server": "^3.13.0",
+    "dotenv": "^17.2.1",
     "graphql": "^16.11.0",
     "mssql": "^11.0.1",
     "pg": "^8.16.3"
