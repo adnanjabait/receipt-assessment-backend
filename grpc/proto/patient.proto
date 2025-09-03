@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package patient;
+
+// Request message
+message PatientRequest {
+  string name = 1;
+}
+
+// Response message for single patient
+message PatientResponse {
+  string name = 1;
+  int32 age = 2;
+  string gender = 3;
+  string contact = 4;
+}
+
+// Empty request for GetAllPatients
+message Empty {}
+
+// Rich patient object for GetAllPatients
+message PatientWithDetails {
+  string reference_number = 1;
+  string name = 2;
+  int32 age = 3;
+  string gender = 4;
+  string contact = 5;
+  string doctor_name = 6;
+  string medicine_name = 7;
+  int32 totalCount = 9;
+  int32 totalPages = 10;
+}
+
+// List response for GetAllPatients
+message PatientsList {
+  repeated PatientWithDetails patients = 1;
+}
+
+// Empty request for GetAllPatients
+message PatientsRequest {
+  int32 page = 1;       // page number
+  int32 pageSize = 2;   // number of rows per page
+}
+
+// Add to patient.proto
+message UpdatePatientRequest {
+  string reference_number = 1;
+  string name = 2;
+  int32 age = 3;
+  string gender = 4;
+  string contact = 5;
+  string doctor_name = 6;
+  string medicine_name = 7;
+}
+
+message UpdateResponse {
+  bool success = 1;
+}
+
+
+// Service
+service PatientService {
+  rpc GetPatient (PatientRequest) returns (PatientResponse);
+  rpc GetAllPatients (PatientsRequest) returns (PatientsList);
+  rpc UpdatePatientDetails (UpdatePatientRequest) returns (UpdateResponse);
+}
+
+

@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package search;
+
+// Request message
+message SearchRequest {
+  string ref_no = 1;
+}
+
+// Response message
+message SearchResponse {
+  string reference = 1;
+}
+
+// Service
+service SearchService {
+  rpc GetReference (SearchRequest) returns (SearchResponse);
+}

@@ -93,7 +93,7 @@ const typeDefs = gql`
 
   # Search reference
   type Search {
-    reference: [String]
+    reference: String
   }
 
   # GraphQL Queries
